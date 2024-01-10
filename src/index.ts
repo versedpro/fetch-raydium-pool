@@ -2,9 +2,15 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { Liquidity } from "@raydium-io/raydium-sdk";
 import { OpenOrders } from "@project-serum/serum";
-import BN from "bn.js";
 import axios from "axios";
 
+/**
+ * Retrieves the pool information for a given token address from a list of pools.
+ *
+ * @param {string} tokenAddress - The token address to search for.
+ * @param {any[]} poolsList - The list of pools to search in.
+ * @return {{ poolAddress: string, marketProgramId: string }} - The pool address and market program ID for the token address.
+ */
 function getPoolInfo(tokenAddress: string, poolsList: any) {
   let poolAddress = "";
   let marketProgramId = "";
@@ -20,7 +26,14 @@ function getPoolInfo(tokenAddress: string, poolsList: any) {
   return { poolAddress, marketProgramId };
 }
 
-export async function get_token_amount(poolId: string, openBookId: string) {
+/**
+ * Retrieves the price of token in a given pool.
+ *
+ * @param {string} poolId - The ID of the pool.
+ * @param {string} openBookId - The ID of the open book(market program of Raydium).
+ * @return {Promise<string>} The price of tokens in the pool, in SOL.
+ */
+export async function getTokenPrice(poolId: string, openBookId: string) {
   try {
     //fetching pool data
     const rpc_url = "https://api.mainnet-beta.solana.com";
@@ -69,14 +82,23 @@ export async function get_token_amount(poolId: string, openBookId: string) {
   }
 }
 
-async function getTokenPriceInSol() {
+/**
+ * Retrieves the price of a token in Solana.
+ *
+ * @param {string} tokenAddress - The address of the token.
+ * @return {Promise<void>} - A promise that resolves with the token price in Solana.
+ */
+async function getTokenPriceInSol(tokenAddress: string) {
   const resPools = await axios.get("https://api.raydium.io/v2/sdk/liquidity/mainnet.json");
   const poolsList = resPools.data.official;
 
-  const poolInfo = getPoolInfo("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", poolsList);
+  const poolInfo = getPoolInfo(tokenAddress, poolsList);
 
-  const res = await get_token_amount(poolInfo.poolAddress, poolInfo.marketProgramId);
+  const res = await getTokenPrice(poolInfo.poolAddress, poolInfo.marketProgramId);
+
+  // Output the token price in SOL
   console.log(res);
 }
 
-getTokenPriceInSol();
+// Replace your token address here
+getTokenPriceInSol("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"); // test USDC
