@@ -1,46 +1,99 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Commitment, Connection, PublicKey } from "@solana/web3.js";
 import { NATIVE_MINT } from "@solana/spl-token";
 import { Liquidity } from "@raydium-io/raydium-sdk";
 import { OpenOrders } from "@project-serum/serum";
-import axios from "axios";
+import { LIQUIDITY_STATE_LAYOUT_V4 } from "@raydium-io/raydium-sdk";
+import * as dotenv from "dotenv";
+dotenv.config();
+
+const RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
+const WSOL_ADDRESS = "So11111111111111111111111111111111111111112";
+// CANNOT USE MAINNET RPC DUE TO RESOURCE USE, USE QUICK NODE OR HELIUS
+const RPC = process.env.RPC;
 
 /**
- * Retrieves the pool information for a given token address from a list of pools.
+ * Retrieves the pool ID based on the provided token address.
  *
- * @param {string} tokenAddress - The token address to search for.
- * @param {any[]} poolsList - The list of pools to search in.
- * @return {{ poolAddress: string, marketProgramId: string }} - The pool address and market program ID for the token address.
+ * @param baseString - The token address used to retrieve the pool ID.
+ * @returns The pool ID as a string if found, otherwise null.
  */
-function getPoolInfo(tokenAddress: string, poolsList: any) {
-  let poolAddress = "";
-  let marketProgramId = "";
-  poolsList.forEach((e: any) => {
-    if (
-      (e.baseMint == tokenAddress && e.quoteMint == NATIVE_MINT) ||
-      (e.baseMint == NATIVE_MINT && e.quoteMint == tokenAddress)
-    ) {
-      poolAddress = e.id;
-      marketProgramId = e.marketProgramId;
+async function getPoolID(baseString: string): Promise<string | null> {
+  let base = new PublicKey(baseString);
+  const quote = new PublicKey(WSOL_ADDRESS);
+  const commitment: Commitment = "confirmed";
+
+  try {
+    const connection = new Connection(RPC);
+
+    // First try with base
+    const baseAccounts = await connection.getProgramAccounts(new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS), {
+      commitment,
+      filters: [
+        { dataSize: LIQUIDITY_STATE_LAYOUT_V4.span },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf("baseMint"),
+            bytes: base.toBase58(),
+          },
+        },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf("quoteMint"),
+            bytes: quote.toBase58(),
+          },
+        },
+      ],
+    });
+
+    if (baseAccounts.length > 0) {
+      const { pubkey } = baseAccounts[0];
+      return pubkey.toString();
     }
-  });
-  return { poolAddress, marketProgramId };
+
+    // If base fails, try with quote
+    const quoteAccounts = await connection.getProgramAccounts(new PublicKey(RAYDIUM_LIQUIDITY_POOL_V4_ADDRESS), {
+      commitment,
+      filters: [
+        { dataSize: LIQUIDITY_STATE_LAYOUT_V4.span },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf("baseMint"),
+            bytes: quote.toBase58(),
+          },
+        },
+        {
+          memcmp: {
+            offset: LIQUIDITY_STATE_LAYOUT_V4.offsetOf("quoteMint"),
+            bytes: base.toBase58(),
+          },
+        },
+      ],
+    });
+
+    if (quoteAccounts.length > 0) {
+      const { pubkey } = quoteAccounts[0];
+      return pubkey.toString();
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error fetching Market accounts:", error);
+    return null;
+  }
 }
 
 /**
- * Retrieves the price of token in a given pool.
+ * Retrieves the token price for a given pool ID.
  *
- * @param {string} poolId - The ID of the pool.
- * @param {string} openBookId - The ID of the open book(market program of Raydium).
- * @return {Promise<string>} The price of tokens in the pool, in SOL.
+ * @param poolId - The ID of the pool to fetch the token price from.
+ * @return The token price in SOL. Returns undefined if an error occurs.
  */
-export async function getTokenPrice(poolId: string, openBookId: string) {
+async function getTokenPrice(poolId: string): Promise<number> {
   try {
     //fetching pool data
-    const rpc_url = "https://api.mainnet-beta.solana.com";
-
     const version: 4 | 5 = 4;
 
-    const connection = new Connection(rpc_url);
+    const connection = new Connection(RPC);
 
     const account = await connection.getAccountInfo(new PublicKey(poolId));
     const { state: LiquidityStateLayout } = Liquidity.getLayouts(version);
@@ -57,7 +110,7 @@ export async function getTokenPrice(poolId: string, openBookId: string) {
     const basePnl = poolState.baseNeedTakePnl.toNumber() / baseDecimal;
     const quotePnl = poolState.quoteNeedTakePnl.toNumber() / quoteDecimal;
 
-    const OPENBOOK_PROGRAM_ID = new PublicKey(openBookId);
+    const OPENBOOK_PROGRAM_ID = poolState.marketProgramId;
 
     const openOrders = await OpenOrders.load(connection, poolState.openOrders, OPENBOOK_PROGRAM_ID);
 
@@ -75,7 +128,7 @@ export async function getTokenPrice(poolId: string, openBookId: string) {
       priceInSol = (quote / base).toString();
     }
 
-    return priceInSol + " SOL";
+    return parseFloat(priceInSol);
   } catch (e) {
     console.error(e);
     return;
@@ -83,22 +136,32 @@ export async function getTokenPrice(poolId: string, openBookId: string) {
 }
 
 /**
- * Retrieves the price of a token in Solana.
- *
- * @param {string} tokenAddress - The address of the token.
- * @return {Promise<void>} - A promise that resolves with the token price in Solana.
+ * fetch the pool ID for a given token address,
+ * retrieves the token price using the pool ID,
+ * and logs the token price in SOL.
  */
-async function getTokenPriceInSol(tokenAddress: string) {
-  const resPools = await axios.get("https://api.raydium.io/v2/sdk/liquidity/mainnet.json");
-  const poolsList = resPools.data.official;
+async function main() {
+  try {
+    const tokenAddress = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // test with USDC
 
-  const poolInfo = getPoolInfo(tokenAddress, poolsList);
+    const poolId = await getPoolID(tokenAddress);
 
-  const res = await getTokenPrice(poolInfo.poolAddress, poolInfo.marketProgramId);
+    if (!poolId) {
+      console.log("No Pool ID Found");
+      return;
+    }
 
-  // Output the token price in SOL
-  console.log(res);
+    const priceInSol = await getTokenPrice(poolId);
+
+    if (!priceInSol) {
+      console.log("Unable to fetch token price.");
+      return;
+    }
+
+    console.log("Token Price:", priceInSol, "SOL");
+  } catch (error) {
+    console.error("Error occurred:", error);
+  }
 }
 
-// Replace your token address here
-getTokenPriceInSol("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"); // test USDC
+main();
