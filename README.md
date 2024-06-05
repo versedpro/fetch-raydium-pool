@@ -7,7 +7,7 @@ Simple one file typescript module to obtain pool id and calculate the token pric
 1. Install this module.
 
    ```sh
-   yarn spl-price
+   yarn spl-price-in-sol
    ```
 
 2. Import `splPriceInSol` function from the package.
