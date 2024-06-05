@@ -2,10 +2,11 @@
   "name": "spl-price-in-sol",
   "version": "1.0.0",
   "description": "Simple one file typescript module to obtain pool id and calculate the token price in SOL utilizing Raydium SDK, with given token address only.",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "build": "npx tsc",
+    "build": "npx ts-node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "versedpro",
