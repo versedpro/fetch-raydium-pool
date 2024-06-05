@@ -1,5 +1,5 @@
 {
-  "name": "fetch-token-price",
+  "name": "sol-token-price",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.ts",
