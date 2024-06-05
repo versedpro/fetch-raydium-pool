@@ -14,11 +14,11 @@ const RPC = process.env.RPC;
 /**
  * Retrieves the pool ID based on the provided token address.
  *
- * @param baseString - The token address used to retrieve the pool ID.
+ * @param baseTokenAddress - The token address used to retrieve the pool ID.
  * @returns The pool ID as a string if found, otherwise null.
  */
-async function getPoolID(baseString: string): Promise<string | null> {
-  let base = new PublicKey(baseString);
+export async function getPoolID(baseTokenAddress: string): Promise<string | null> {
+  let base = new PublicKey(baseTokenAddress);
   const quote = new PublicKey(WSOL_ADDRESS);
   const commitment: Commitment = "confirmed";
 
@@ -139,11 +139,12 @@ async function getTokenPrice(poolId: string): Promise<number> {
  * fetch the pool ID for a given token address,
  * retrieves the token price using the pool ID,
  * and logs the token price in SOL.
+ *
+ * @param tokenAddress - The token address to retrieve the pool ID for.
+ * @returns The token price in SOL.
  */
-async function main() {
+export async function splPriceInSol(tokenAddress: string) {
   try {
-    const tokenAddress = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // test with USDC
-
     const poolId = await getPoolID(tokenAddress);
 
     if (!poolId) {
@@ -158,10 +159,8 @@ async function main() {
       return;
     }
 
-    console.log("Token Price:", priceInSol, "SOL");
+    return priceInSol;
   } catch (error) {
     console.error("Error occurred:", error);
   }
 }
-
-main();

@@ -24,5 +24,8 @@
     "dotenv": "^16.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
+  },
+  "publishConfig": {
+    "registry": "https://github.com/versedpro/fetch-raydium-pool.git"
   }
 }
