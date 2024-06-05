@@ -1,18 +1,31 @@
 ## Fetch token price in SOL on Raydium
 
-Simple one file typescript project to obtain pool id and calculate the token price in SOL utilizing Raydium SDK, with given token address only.
+Simple one file typescript module to obtain pool id and calculate the token price in SOL utilizing Raydium SDK, with given token address only.
 
 ## Simple usage
 
-1. Edit the tokenAddress value in main function of `src/index.ts` file. Replace it with your desired token address.
+1. Install this module.
 
-2. Run the script using this command.
    ```sh
-   yarn start
+   yarn spl-price
    ```
-   
-## 
 
-I hope you guys implement this code into your large project and enjoy it!
+2. Import `splPriceInSol` function from the package.
 
-Feel free to contribute to enhancing this code. Thanks for improving @Allen-Taylor
+3. Set RPC using your own QUICK NODE OR HELIUS. In env file...
+
+   ```plaintext
+   RPC=https://mainnet.helius-rpc.com/?api-key=<your_key>
+   ```
+
+4. Call `splPriceInSol` function with your own param(desired token address).
+
+   ```typescript
+   splPriceInSol("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"); // USDC for testing purpose
+   ```
+
+##
+
+I hope you guys implement this package into your large project and enjoy it!
+
+Feel free to contribute to enhancing the package. Thanks for improving @Allen-Taylor
